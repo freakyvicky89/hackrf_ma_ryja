@@ -1,0 +1,3 @@
+gnuradio - should be in your OS's repo, install using package manager
+hackrf firmware - as above, package should be called just hackrf
+an actual hackrf - unfortunately, you can't download physical electronics yet, you need to buy it or something
