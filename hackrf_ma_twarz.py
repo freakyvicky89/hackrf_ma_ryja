@@ -1,6 +1,6 @@
-from __future__ import unicode_literals
-import sys, os, youtube_dl
-from gnuradio import gr, blocks
+import sys, os, youtube_dl, rds
+
+RDS_TEXT_FRAGMENT_LC = 'maryja'
 
 FREQS = {
     "Biala Podlaska" : 87.8,
@@ -117,6 +117,10 @@ def download_audio_from_yt(id):
     with youtube_dl.YoutubeDL(ydl_options) as ydl:
         ydl.download(['https://www.youtube.com/watch?v={}'.format(id)])
 
+def check_frequency(name):
+    print('[hackrf_ma_twarz] checking frequency for {} : {} MHz'.format(name, str(FREQS[name])))
+    rds.rdspanel
+    return False
 
 if len(sys.argv) < 2:
     print_usage_and_exit()
@@ -131,4 +135,9 @@ if not os.path.exists(path):
     except:
         print_usage_and_exit()
 
+found = []
+
+for frequency_name in FREQS:
+    if check_frequency(frequency_name):
+        found.append(frequency_name)
 
