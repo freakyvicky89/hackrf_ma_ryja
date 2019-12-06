@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 import sys, os, youtube_dl, rds
 
 RDS_TEXT_FRAGMENT_LC = 'maryja'
