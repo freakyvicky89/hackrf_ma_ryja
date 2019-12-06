@@ -1,4 +1,4 @@
-import sys, os, youtube_dl, math, osmosdr, rds, time
+import sys, os, youtube_dl, osmosdr, rds, time, threading
 from gnuradio import analog
 from gnuradio import blocks
 from gnuradio import digital
@@ -7,7 +7,7 @@ from gnuradio import gr
 from gnuradio.filter import firdes
 from gnuradio.filter import pfb
 
-PLACEHOLDER_FREQ = 89.0
+DEBUG_FREQ = 89.0
 
 RDS_TEXT_FRAGMENT_LC = 'radiomaryja'
 
@@ -102,6 +102,7 @@ FREQS = {
     "Zagan" : 101.2,
     "Nowy Sacz" : 95.1
 }
+
 
 class rds_rx(gr.top_block):
 
@@ -221,6 +222,7 @@ class rds_rx(gr.top_block):
 
     # END OF BULLSHIT NEEDED ONLY FOR SWIG TO WORK
 
+
 def print_usage_and_exit():
     print('I am not responsible for using this code to break any local and/or international laws. Use at your own risk.')
     print('This script finds the local Radio Maryja frequency and broadcasts a chosen wave file or youtube audio on it.')
@@ -231,6 +233,18 @@ def print_usage_and_exit():
     print('  what - filename of wave file (without .wav extension)')
     print('         OR youtube video id (https://www.youtube.com/watch?v=*this part*)')
     exit(1)
+
+
+def receive_rds(receiver):
+    receiver.wait()
+
+
+def start_receiving(receiver):
+    receiver.start()
+    receiver_thread = threading.Thread(target=receive_rds, args=(receiver,))
+    receiver_thread.start()
+    return receiver_thread
+
 
 def download_audio_from_yt(id):
     ydl_options = {
@@ -244,11 +258,21 @@ def download_audio_from_yt(id):
     with youtube_dl.YoutubeDL(ydl_options) as ydl:
         ydl.download(['https://www.youtube.com/watch?v={}'.format(id)])
 
+
 def check_frequency(receiver, name):
     print('[hackrf_ma_twarz] checking frequency for {} : {} MHz'.format(name, str(FREQS[name])))
     receiver.set_freq(FREQS[name]*1e6)
     time.sleep(5)
     return False
+
+
+def stop_receiving(receiver_thread):
+    receiver_thread.join()
+    receiver.stop()
+    receiver.wait()
+
+
+##################################################################
 
 if len(sys.argv) < 2:
     print_usage_and_exit()
@@ -264,13 +288,12 @@ if not os.path.exists(path):
         print_usage_and_exit()
 
 found = []
-receiver = rds_rx(PLACEHOLDER_FREQ*1e6)
-receiver.start()
-receiver.wait()
+receiver = rds_rx(DEBUG_FREQ * 1e6)
+receiver_thread = start_receiving(receiver)
+time.sleep(5)
 
 for frequency_name in FREQS:
     if check_frequency(receiver, frequency_name):
         found.append(frequency_name)
 
-receiver.stop()
-receiver.wait()
+stop_receiving(receiver_thread)
