@@ -10,6 +10,8 @@ from gnuradio.filter import pfb
 DEBUG_FREQ = 89.0
 DEBUG_TRANSMITTER = "Warszawa"
 
+CACHE_FILE="cache"
+
 TUNING_TIME = 10
 HACKRF_RELEASE_TIME = 2
 
@@ -283,12 +285,18 @@ def check_frequency(name):
     receiver.start()
     receiver_thread = threading.Thread(target=receive_rds, args=(receiver,))
     receiver_thread.start()
+    print("[hackrf_ma_twarz] +Receiver thread started")
     time.sleep(TUNING_TIME)
+    print("[hackrf_ma_twarz] +Stopping receiver")
     receiver.stop()
+    print("[hackrf_ma_twarz] +Waiting for receiver to terminate")
     receiver.wait()
+    print("[hackrf_ma_twarz] +Checking captured RDS")
     ret = RDS_TEXT_FRAGMENT in receiver.rds_buffer_0.radio_text
-    del receiver
+    print("[hackrf_ma_twarz] +Waiting for device to be freed")
     time.sleep(HACKRF_RELEASE_TIME)
+    del receiver
+    print("[hackrf_ma_twarz] +Receiver destroyed")
     return ret
 
 
@@ -309,11 +317,42 @@ if not os.path.exists(path):
 
 found = []
 
-#print(check_frequency(DEBUG_TRANSMITTER)) # for debugging
+if os.path.exists(CACHE_FILE):
 
-for frequency_name in FREQS:
-    if check_frequency(frequency_name):
-        print("[hackrf_ma_twarz] Found {} on {} : {}".format(RDS_TEXT_FRAGMENT, frequency_name, FREQS[frequency_name]))
-        found.append(frequency_name)
+    with open(CACHE_FILE, "r") as cache_file:
+        found = cache_file.readlines()
 
-print(found)
+    if len(found) < 1:
+        do_scan=True
+
+    else:
+        answer = str(raw_input("[hackrf_ma_twarz] Found cache containg receivers: {} Type [Y] to do a new scan:".format(found)))
+        do_scan = answer.lower() in "y"
+
+else:
+    do_scan=True
+
+if do_scan:
+    #print(check_frequency(DEBUG_TRANSMITTER)) # for debugging
+    for frequency_name in FREQS:
+        if check_frequency(frequency_name):
+            print("[hackrf_ma_twarz] Found \"{}\" on {} : {}".format(RDS_TEXT_FRAGMENT, frequency_name, FREQS[frequency_name]))
+            found.append(frequency_name)
+
+    if len(found) > 0:
+        with open(CACHE_FILE, "w") as cache_file:
+            cache_file.writelines(found)
+            print("[hackrf_ma_twarz] Stored {} in cache.".format(found))
+
+    else:
+        print("[hackrf_ma_twarz] No transmitters found, sorry")
+        exit(1)
+
+print("[hackrf_ma_twarz] Following transmitters were found:")
+frequency_choice = {}
+
+for i in range(0, len(found)):
+    frequency_choice[i] = found[i]
+    print("[hackrf_ma_twarz]   [{}] {} : {} MHz".format(i, found[i], FREQS[found[i]]))
+
+chosen = raw_input("[hackrf_ma_twarz] Please choose one:")
