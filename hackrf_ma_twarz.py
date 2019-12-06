@@ -1,4 +1,4 @@
-import sys, os, youtube_dl, osmosdr, rds, time, threading
+import sys, os, youtube_dl, osmosdr, rds, time, threading, pmt
 from gnuradio import analog
 from gnuradio import blocks
 from gnuradio import digital
@@ -9,9 +9,9 @@ from gnuradio.filter import pfb
 
 DEBUG_FREQ = 89.0
 
-TUNING_TIME = 7
+TUNING_TIME = 15
 
-RDS_TEXT_FRAGMENT_LC = 'radiomaryja'
+RDS_TEXT_FRAGMENT = 'radiomaryja'
 
 FREQS = {
     "Warszawa": 89.0,
@@ -106,10 +106,31 @@ FREQS = {
 }
 
 
+class rds_buffer(gr.sync_block):
+
+    def __init__(self, *args, **kwds):
+        gr.sync_block.__init__(
+            self,
+            name="rds_buffer",
+            in_sig=None,
+            out_sig=None,
+        )
+        self.radio_text=''
+        self.message_port_register_in(pmt.intern('in'))
+        self.set_msg_handler(pmt.intern('in'), self.handle_msg)
+
+    def handle_msg(self, msg):
+        if (pmt.is_tuple(msg)):
+            type = pmt.to_long(pmt.tuple_ref(msg, 0))
+            message = pmt.symbol_to_string(pmt.tuple_ref(msg, 1))
+            if type == 4: #radio_text
+                self.radio_text = message
+
+
 class rds_rx(gr.top_block):
 
     def __init__(self, rx_freq):
-        gr.top_block.__init__(self, "Stereo FM receiver and RDS Decoder")
+        gr.top_block.__init__(self, "FM RDS receiver and decoder")
 
         ##################################################
         # Variables
@@ -168,6 +189,8 @@ class rds_rx(gr.top_block):
         	audio_decimation=8,
         )
 
+        self.rds_buffer_0 = rds_buffer()
+
         ##################################################
         # Connections
         ##################################################
@@ -182,12 +205,15 @@ class rds_rx(gr.top_block):
         self.connect((self.pfb_arb_resampler_xxx_0, 0), (self.root_raised_cosine_filter_0, 0))
         self.connect((self.root_raised_cosine_filter_0, 0), (self.digital_psk_demod_0, 0))
 
+        self.msg_connect((self.gr_rds_parser_0, 'out'), (self.rds_buffer_0, 'in'))
+
     def get_freq(self):
         return self.freq
 
     def set_freq(self, freq):
         self.freq = freq
         self.set_freq_tune(self.freq - self.freq_offset)
+        self.rds_buffer_0.radio_text = ''
 
     #DO NOT USE
     #COMMENCE BULLSHIT NEEDED ONLY FOR SWIG TO WORK
@@ -250,23 +276,22 @@ def start_receiving(receiver):
 
 def download_audio_from_yt(id):
     ydl_options = {
-        'format': 'bestaudio/best',
-        'outtmpl': '%(id)s.%(ext)s',
+        'format': u'bestaudio/best',
+        'outtmpl': u'%(id)s.%(ext)s',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'wav'
         }]
     }
     with youtube_dl.YoutubeDL(ydl_options) as ydl:
-        ydl.download(['https://www.youtube.com/watch?v={}'.format(id)])
+        ydl.download([unicode('https://www.youtube.com/watch?v={}'.format(id))])
 
 
 def check_frequency(receiver, name):
     print('[hackrf_ma_twarz] checking frequency for {} : {} MHz'.format(name, str(FREQS[name])))
     receiver.set_freq(FREQS[name]*1e6)
     time.sleep(TUNING_TIME)
-    receiver.gr_rds_parser_0
-    return False
+    return RDS_TEXT_FRAGMENT in receiver.rds_buffer_0.radio_text
 
 
 def stop_receiving(receiver_thread):
@@ -297,6 +322,9 @@ time.sleep(TUNING_TIME)
 
 for frequency_name in FREQS:
     if check_frequency(receiver, frequency_name):
+        print("[hackrf_ma_twarz] Found {} on {} : {}".format(RDS_TEXT_FRAGMENT, frequency_name, FREQS[frequency_name]))
         found.append(frequency_name)
 
 stop_receiving(receiver_thread)
+
+print(found)
