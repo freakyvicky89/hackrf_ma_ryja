@@ -7,12 +7,12 @@ from gnuradio import gr
 from gnuradio.filter import firdes
 from gnuradio.filter import pfb
 
-
-RDS_TEXT_FRAGMENT_LC = 'maryja'
-
 PLACEHOLDER_FREQ = 89.0
 
+RDS_TEXT_FRAGMENT_LC = 'radiomaryja'
+
 FREQS = {
+    "Warszawa": 89.0,
     "Biala Podlaska" : 87.8,
     "Nowy Targ" : 95.5,
     "Bialystok / Drawsko Pom." : 104.7,
@@ -34,7 +34,7 @@ FREQS = {
     "Ciechanow" : 91.8,
     "Czersk" : 101.4,
     "Piotrkow Tryb." : 95.7,
-    "Suwalki / Deblin Ryki" : 107.9,
+    "Suwalki / Deblin / Ryki" : 107.9,
     "Szczecin / Pisz" : 101.6,
     "Dolsk / swiecie" : 104.0,
     "Plock / Sierpc / Klodzko / Lezajsk" : 106.3,
@@ -81,7 +81,6 @@ FREQS = {
     "Krasnik" : 98.0,
     "Ustrzyki Dolne" : 94.5,
     "Krynica / Wladyslawowo" : 93.1,
-    "Warszawa" : 89.0,
     "Kudowa Zdroj" : 90.1,
     "Wagrowiec" : 88.7,
     "Kutno" : 88.3,
@@ -106,17 +105,17 @@ FREQS = {
 
 class rds_rx(gr.top_block):
 
-    def __init__(self):
+    def __init__(self, rx_freq):
         gr.top_block.__init__(self, "Stereo FM receiver and RDS Decoder")
 
         ##################################################
         # Variables
         ##################################################
         self.freq_offset = freq_offset = 250000
-        self.freq = PLACEHOLDER_FREQ*1e6
+        self.freq = freq = rx_freq
         self.samp_rate = samp_rate = 2000000
         self.gain = gain = 20
-        self.freq_tune = freq_tune = self.freq - freq_offset
+        self.freq_tune = freq_tune = freq - freq_offset
 
         ##################################################
         # Blocks
@@ -181,10 +180,10 @@ class rds_rx(gr.top_block):
         self.connect((self.root_raised_cosine_filter_0, 0), (self.digital_psk_demod_0, 0))
 
     def get_freq(self):
-        return self.freq/1e6
+        return self.freq
 
     def set_freq(self, freq):
-        self.freq = freq*1e6
+        self.freq = freq
         self.set_freq_tune(self.freq - self.freq_offset)
 
     #DO NOT USE
@@ -247,7 +246,8 @@ def download_audio_from_yt(id):
 
 def check_frequency(receiver, name):
     print('[hackrf_ma_twarz] checking frequency for {} : {} MHz'.format(name, str(FREQS[name])))
-    receiver.set_freq(FREQS[name])
+    receiver.set_freq(FREQS[name]*1e6)
+    time.sleep(5)
     return False
 
 if len(sys.argv) < 2:
@@ -264,11 +264,13 @@ if not os.path.exists(path):
         print_usage_and_exit()
 
 found = []
-receiver = rds_rx()
+receiver = rds_rx(PLACEHOLDER_FREQ*1e6)
 receiver.start()
+receiver.wait()
 
 for frequency_name in FREQS:
     if check_frequency(receiver, frequency_name):
         found.append(frequency_name)
 
 receiver.stop()
+receiver.wait()
