@@ -1,5 +1,13 @@
 from __future__ import unicode_literals
-import sys, os, youtube_dl, rds
+import sys, os, youtube_dl, math, osmosdr, rds, time
+from gnuradio import analog
+from gnuradio import blocks
+from gnuradio import digital
+from gnuradio import filter
+from gnuradio import gr
+from gnuradio.filter import firdes
+from gnuradio.filter import pfb
+
 
 RDS_TEXT_FRAGMENT_LC = 'maryja'
 
@@ -95,6 +103,90 @@ FREQS = {
     "Nowy Sacz" : 95.1
 }
 
+class rds_rx(gr.top_block):
+
+    def __init__(self, freq):
+        gr.top_block.__init__(self, "Stereo FM receiver and RDS Decoder")
+
+        ##################################################
+        # Variables
+        ##################################################
+        self.freq_offset = freq_offset = 250000
+        self.freq = freq*1e6
+        self.samp_rate = samp_rate = 2000000
+        self.gain = gain = 20
+        self.freq_tune = freq_tune = freq - freq_offset
+
+        ##################################################
+        # Blocks
+        ##################################################
+        self.root_raised_cosine_filter_0 = filter.fir_filter_ccf(2, firdes.root_raised_cosine(
+        	1, 19000, 2375, .35, 100))
+        self.pfb_arb_resampler_xxx_0 = pfb.arb_resampler_ccf(
+        	  19000/250e3,
+                  taps=None,
+        	  flt_size=32)
+        self.pfb_arb_resampler_xxx_0.declare_sample_delay(0)
+
+        self.osmosdr_source_0 = osmosdr.source( args="numchan=" + str(1) + " " + 'hackrf' )
+        self.osmosdr_source_0.set_clock_source('gpsdo', 0)
+        self.osmosdr_source_0.set_time_source('gpsdo', 0)
+        self.osmosdr_source_0.set_sample_rate(samp_rate)
+        self.osmosdr_source_0.set_center_freq(freq_tune, 0)
+        self.osmosdr_source_0.set_freq_corr(0, 0)
+        self.osmosdr_source_0.set_dc_offset_mode(0, 0)
+        self.osmosdr_source_0.set_iq_balance_mode(0, 0)
+        self.osmosdr_source_0.set_gain_mode(False, 0)
+        self.osmosdr_source_0.set_gain(14, 0)
+        self.osmosdr_source_0.set_if_gain(24, 0)
+        self.osmosdr_source_0.set_bb_gain(gain, 0)
+        self.osmosdr_source_0.set_antenna('', 0)
+        self.osmosdr_source_0.set_bandwidth(0, 0)
+
+        self.gr_rds_parser_0 = rds.parser(True, False, 0)
+        self.gr_rds_decoder_0 = rds.decoder(False, False)
+        self.freq_xlating_fir_filter_xxx_1_0 = filter.freq_xlating_fir_filter_fcc(1, (firdes.low_pass(2500.0,250000,2.6e3,2e3,firdes.WIN_HAMMING)), 57e3, 250000)
+        self.freq_xlating_fir_filter_xxx_0 = filter.freq_xlating_fir_filter_ccc(1, (firdes.low_pass(1, samp_rate, 80000, 20000)), freq_offset, samp_rate)
+        self.digital_psk_demod_0 = digital.psk.psk_demod(
+          constellation_points=2,
+          differential=False,
+          samples_per_symbol=4,
+          excess_bw=0.35,
+          phase_bw=6.28/100.0,
+          timing_bw=6.28/100.0,
+          mod_code="gray",
+          verbose=False,
+          log=False,
+          )
+        self.digital_diff_decoder_bb_0 = digital.diff_decoder_bb(2)
+        self.blocks_keep_one_in_n_0 = blocks.keep_one_in_n(gr.sizeof_char*1, 2)
+        self.analog_wfm_rcv_0 = analog.wfm_rcv(
+        	quad_rate=samp_rate,
+        	audio_decimation=8,
+        )
+
+        ##################################################
+        # Connections
+        ##################################################
+        self.msg_connect((self.gr_rds_decoder_0, 'out'), (self.gr_rds_parser_0, 'in'))
+        self.connect((self.analog_wfm_rcv_0, 0), (self.freq_xlating_fir_filter_xxx_1_0, 0))
+        self.connect((self.blocks_keep_one_in_n_0, 0), (self.digital_diff_decoder_bb_0, 0))
+        self.connect((self.digital_diff_decoder_bb_0, 0), (self.gr_rds_decoder_0, 0))
+        self.connect((self.digital_psk_demod_0, 0), (self.blocks_keep_one_in_n_0, 0))
+        self.connect((self.freq_xlating_fir_filter_xxx_0, 0), (self.analog_wfm_rcv_0, 0))
+        self.connect((self.freq_xlating_fir_filter_xxx_1_0, 0), (self.pfb_arb_resampler_xxx_0, 0))
+        self.connect((self.osmosdr_source_0, 0), (self.freq_xlating_fir_filter_xxx_0, 0))
+        self.connect((self.pfb_arb_resampler_xxx_0, 0), (self.root_raised_cosine_filter_0, 0))
+        self.connect((self.root_raised_cosine_filter_0, 0), (self.digital_psk_demod_0, 0))
+
+    def get_freq(self):
+        return self.freq/1e6
+
+    def set_freq(self, freq):
+        self.freq = freq*1e6
+        self.set_freq_tune(self.freq - self.freq_offset)
+
+
 def print_usage_and_exit():
     print('I am not responsible for using this code to break any local and/or international laws. Use at your own risk.')
     print('This script finds the local Radio Maryja frequency and broadcasts a chosen wave file or youtube audio on it.')
@@ -120,7 +212,7 @@ def download_audio_from_yt(id):
 
 def check_frequency(name):
     print('[hackrf_ma_twarz] checking frequency for {} : {} MHz'.format(name, str(FREQS[name])))
-    rds.rdspanel
+
     return False
 
 if len(sys.argv) < 2:
