@@ -8,8 +8,10 @@ from gnuradio.filter import firdes
 from gnuradio.filter import pfb
 
 DEBUG_FREQ = 89.0
+DEBUG_TRANSMITTER = "Warszawa"
 
-TUNING_TIME = 15
+TUNING_TIME = 10
+HACKRF_RELEASE_TIME = 2
 
 RDS_TEXT_FRAGMENT = 'radiomaryja'
 
@@ -215,9 +217,6 @@ class rds_rx(gr.top_block):
         self.set_freq_tune(self.freq - self.freq_offset)
         self.rds_buffer_0.radio_text = ''
 
-    #DO NOT USE
-    #COMMENCE BULLSHIT NEEDED ONLY FOR SWIG TO WORK
-
     def get_samp_rate(self):
         return self.samp_rate
 
@@ -248,8 +247,6 @@ class rds_rx(gr.top_block):
         self.set_freq_tune(self.freq - self.freq_offset)
         self.freq_xlating_fir_filter_xxx_0.set_center_freq(self.freq_offset)
 
-    # END OF BULLSHIT NEEDED ONLY FOR SWIG TO WORK
-
 
 def print_usage_and_exit():
     print('I am not responsible for using this code to break any local and/or international laws. Use at your own risk.')
@@ -267,13 +264,6 @@ def receive_rds(receiver):
     receiver.wait()
 
 
-def start_receiving(receiver):
-    receiver.start()
-    receiver_thread = threading.Thread(target=receive_rds, args=(receiver,))
-    receiver_thread.start()
-    return receiver_thread
-
-
 def download_audio_from_yt(id):
     ydl_options = {
         'format': u'bestaudio/best',
@@ -287,17 +277,19 @@ def download_audio_from_yt(id):
         ydl.download([unicode('https://www.youtube.com/watch?v={}'.format(id))])
 
 
-def check_frequency(receiver, name):
+def check_frequency(name):
     print('[hackrf_ma_twarz] checking frequency for {} : {} MHz'.format(name, str(FREQS[name])))
-    receiver.set_freq(FREQS[name]*1e6)
+    receiver = rds_rx(FREQS[name]*1e6)
+    receiver.start()
+    receiver_thread = threading.Thread(target=receive_rds, args=(receiver,))
+    receiver_thread.start()
     time.sleep(TUNING_TIME)
-    return RDS_TEXT_FRAGMENT in receiver.rds_buffer_0.radio_text
-
-
-def stop_receiving(receiver_thread):
-    receiver_thread.join()
     receiver.stop()
     receiver.wait()
+    ret = RDS_TEXT_FRAGMENT in receiver.rds_buffer_0.radio_text
+    del receiver
+    time.sleep(HACKRF_RELEASE_TIME)
+    return ret
 
 
 ##################################################################
@@ -316,15 +308,12 @@ if not os.path.exists(path):
         print_usage_and_exit()
 
 found = []
-receiver = rds_rx(DEBUG_FREQ * 1e6)
-receiver_thread = start_receiving(receiver)
-time.sleep(TUNING_TIME)
+
+#print(check_frequency(DEBUG_TRANSMITTER)) # for debugging
 
 for frequency_name in FREQS:
-    if check_frequency(receiver, frequency_name):
+    if check_frequency(frequency_name):
         print("[hackrf_ma_twarz] Found {} on {} : {}".format(RDS_TEXT_FRAGMENT, frequency_name, FREQS[frequency_name]))
         found.append(frequency_name)
-
-stop_receiving(receiver_thread)
 
 print(found)
