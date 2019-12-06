@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 import sys, os, youtube_dl, math, osmosdr, rds, time
 from gnuradio import analog
 from gnuradio import blocks
@@ -10,6 +9,8 @@ from gnuradio.filter import pfb
 
 
 RDS_TEXT_FRAGMENT_LC = 'maryja'
+
+PLACEHOLDER_FREQ = 89.0
 
 FREQS = {
     "Biala Podlaska" : 87.8,
@@ -105,17 +106,17 @@ FREQS = {
 
 class rds_rx(gr.top_block):
 
-    def __init__(self, freq):
+    def __init__(self):
         gr.top_block.__init__(self, "Stereo FM receiver and RDS Decoder")
 
         ##################################################
         # Variables
         ##################################################
         self.freq_offset = freq_offset = 250000
-        self.freq = freq*1e6
+        self.freq = PLACEHOLDER_FREQ*1e6
         self.samp_rate = samp_rate = 2000000
         self.gain = gain = 20
-        self.freq_tune = freq_tune = freq - freq_offset
+        self.freq_tune = freq_tune = self.freq - freq_offset
 
         ##################################################
         # Blocks
@@ -186,6 +187,40 @@ class rds_rx(gr.top_block):
         self.freq = freq*1e6
         self.set_freq_tune(self.freq - self.freq_offset)
 
+    #DO NOT USE
+    #COMMENCE BULLSHIT NEEDED ONLY FOR SWIG TO WORK
+
+    def get_samp_rate(self):
+        return self.samp_rate
+
+    def set_samp_rate(self, samp_rate):
+        self.samp_rate = samp_rate
+        self.osmosdr_source_0.set_sample_rate(self.samp_rate)
+        self.freq_xlating_fir_filter_xxx_0.set_taps((firdes.low_pass(1, self.samp_rate, 80000, 20000)))
+
+    def get_gain(self):
+        return self.gain
+
+    def set_gain(self, gain):
+        self.gain = gain
+        self.osmosdr_source_0.set_bb_gain(self.gain, 0)
+
+    def get_freq_tune(self):
+        return self.freq_tune
+
+    def set_freq_tune(self, freq_tune):
+        self.freq_tune = freq_tune
+        self.osmosdr_source_0.set_center_freq(self.freq_tune, 0)
+
+    def get_freq_offset(self):
+        return self.freq_offset
+
+    def set_freq_offset(self, freq_offset):
+        self.freq_offset = freq_offset
+        self.set_freq_tune(self.freq - self.freq_offset)
+        self.freq_xlating_fir_filter_xxx_0.set_center_freq(self.freq_offset)
+
+    # END OF BULLSHIT NEEDED ONLY FOR SWIG TO WORK
 
 def print_usage_and_exit():
     print('I am not responsible for using this code to break any local and/or international laws. Use at your own risk.')
@@ -210,9 +245,9 @@ def download_audio_from_yt(id):
     with youtube_dl.YoutubeDL(ydl_options) as ydl:
         ydl.download(['https://www.youtube.com/watch?v={}'.format(id)])
 
-def check_frequency(name):
+def check_frequency(receiver, name):
     print('[hackrf_ma_twarz] checking frequency for {} : {} MHz'.format(name, str(FREQS[name])))
-
+    receiver.set_freq(FREQS[name])
     return False
 
 if len(sys.argv) < 2:
@@ -229,8 +264,11 @@ if not os.path.exists(path):
         print_usage_and_exit()
 
 found = []
+receiver = rds_rx()
+receiver.start()
 
 for frequency_name in FREQS:
-    if check_frequency(frequency_name):
+    if check_frequency(receiver, frequency_name):
         found.append(frequency_name)
 
+receiver.stop()
