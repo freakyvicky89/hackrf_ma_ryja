@@ -9,6 +9,8 @@ from gnuradio.filter import pfb
 
 DEBUG_FREQ = 89.0
 
+TUNING_TIME = 7
+
 RDS_TEXT_FRAGMENT_LC = 'radiomaryja'
 
 FREQS = {
@@ -262,7 +264,8 @@ def download_audio_from_yt(id):
 def check_frequency(receiver, name):
     print('[hackrf_ma_twarz] checking frequency for {} : {} MHz'.format(name, str(FREQS[name])))
     receiver.set_freq(FREQS[name]*1e6)
-    time.sleep(5)
+    time.sleep(TUNING_TIME)
+    receiver.gr_rds_parser_0
     return False
 
 
@@ -290,7 +293,7 @@ if not os.path.exists(path):
 found = []
 receiver = rds_rx(DEBUG_FREQ * 1e6)
 receiver_thread = start_receiving(receiver)
-time.sleep(5)
+time.sleep(TUNING_TIME)
 
 for frequency_name in FREQS:
     if check_frequency(receiver, frequency_name):
