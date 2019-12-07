@@ -17,6 +17,9 @@ HACKRF_RELEASE_TIME = 2
 
 RDS_TEXT_FRAGMENT = 'radiomaryja'
 
+SAMPLE_RATE = 48000
+RF_GAIN = 30
+
 FREQS = {
     "Warszawa": 89.0,
     "Biala Podlaska" : 87.8,
@@ -250,6 +253,70 @@ class rds_rx(gr.top_block):
         self.freq_xlating_fir_filter_xxx_0.set_center_freq(self.freq_offset)
 
 
+class fm_tx(gr.top_block):
+
+    def __init__(self, frequency, file):
+        gr.top_block.__init__(self, "FM Transmitter")
+
+        ##################################################
+        # Variables
+        ##################################################
+        self.tune_freq = tune_freq = frequency
+        self.file_name = file_name = file
+        self.samp_rate = samp_rate = 48000
+
+        ##################################################
+        # Blocks
+        ##################################################
+        self.osmosdr_sink_0 = osmosdr.sink(args="numchan=" + str(1) + " " + 'hackrf')
+        self.osmosdr_sink_0.set_clock_source('gpsdo', 0)
+        self.osmosdr_sink_0.set_time_source('gpsdo', 0)
+        self.osmosdr_sink_0.set_time_now(osmosdr.time_spec_t(time.time()), osmosdr.ALL_MBOARDS)
+        self.osmosdr_sink_0.set_sample_rate(16 * samp_rate)
+        self.osmosdr_sink_0.set_center_freq(tune_freq, 0)
+        self.osmosdr_sink_0.set_freq_corr(0, 0)
+        self.osmosdr_sink_0.set_gain(RF_GAIN, 0)
+        self.osmosdr_sink_0.set_if_gain(0, 0)
+        self.osmosdr_sink_0.set_bb_gain(0, 0)
+        self.osmosdr_sink_0.set_antenna('', 0)
+        self.osmosdr_sink_0.set_bandwidth(70000, 0)
+
+        self.blocks_wavfile_source_0 = blocks.wavfile_source(file_name, True)
+        self.analog_wfm_tx_0 = analog.wfm_tx(
+            audio_rate=samp_rate,
+            quad_rate=16 * samp_rate,
+            tau=50e-6,
+            max_dev=50e3,
+            fh=-1,
+        )
+
+        ##################################################
+        # Connections
+        ##################################################
+        self.connect((self.analog_wfm_tx_0, 0), (self.osmosdr_sink_0, 0))
+        self.connect((self.blocks_wavfile_source_0, 0), (self.analog_wfm_tx_0, 0))
+
+    def get_tune_freq(self):
+        return self.tune_freq
+
+    def set_tune_freq(self, tune_freq):
+        self.tune_freq = tune_freq
+        self.osmosdr_sink_0.set_center_freq(self.tune_freq, 0)
+
+    def get_samp_rate(self):
+        return self.samp_rate
+
+    def set_samp_rate(self, samp_rate):
+        self.samp_rate = samp_rate
+        self.osmosdr_sink_0.set_sample_rate(16 * self.samp_rate)
+
+    def get_file_name(self):
+        return self.file_name
+
+    def set_file_name(self, file_name):
+        self.file_name = file_name
+
+
 def print_usage_and_exit():
     print('I am not responsible for using this code to break any local and/or international laws. Use at your own risk.')
     print('This script finds the local Radio Maryja frequency and broadcasts a chosen wave file or youtube audio on it.')
@@ -296,8 +363,23 @@ def check_frequency(name):
     print("[hackrf_ma_twarz] +Waiting for device to be freed")
     time.sleep(HACKRF_RELEASE_TIME)
     del receiver
-    print("[hackrf_ma_twarz] +Receiver destroyed")
+    print("[hackrf_ma_twarz] +Receiver object destroyed")
     return ret
+
+
+def transmit(tx_frequency, source_file):
+    print("[hackrf_ma_twarz] Transmitting {} on {} MHz".format(source_file, tx_frequency))
+    transmitter = fm_tx(tx_frequency*1e6, source_file)
+    transmitter.start()
+    transmitter.wait()
+    print("[hackrf_ma_twarz] +Stopping transmitter")
+    transmitter.stop()
+    print("[hackrf_ma_twarz] +Waiting for transmitter to terminate")
+    transmitter.wait()
+    print("[hackrf_ma_twarz] +Waiting for device to be freed")
+    time.sleep(HACKRF_RELEASE_TIME)
+    del transmitter
+    print("[hackrf_ma_twarz] +Transmitter object destroyed")
 
 
 ##################################################################
@@ -326,7 +408,8 @@ if os.path.exists(CACHE_FILE):
         do_scan=True
 
     else:
-        answer = str(raw_input("[hackrf_ma_twarz] Found cache containg receivers: {} Type [Y] to do a new scan:".format(found)))
+        print("[hackrf_ma_twarz] Found cache containg receivers: {}".format(found))
+        answer = str(raw_input("[hackrf_ma_twarz] Type [Y] to do a new scan:"))
         do_scan = answer.lower() in "y"
 
 else:
@@ -355,4 +438,8 @@ for i in range(0, len(found)):
     frequency_choice[i] = found[i]
     print("[hackrf_ma_twarz]   [{}] {} : {} MHz".format(i, found[i], FREQS[found[i]]))
 
-chosen = raw_input("[hackrf_ma_twarz] Please choose one:")
+chosen = -1
+while not chosen in range(0, len(found)):
+    chosen = int(raw_input("[hackrf_ma_twarz] Please choose one:"))
+
+transmit(FREQS[found[chosen]], path)
