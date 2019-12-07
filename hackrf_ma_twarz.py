@@ -408,7 +408,7 @@ if os.path.exists(CACHE_FILE):
         do_scan=True
 
     else:
-        print("[hackrf_ma_twarz] Found cache containg receivers: {}".format(found))
+        print("[hackrf_ma_twarz] Found cache containg frequencies: {}".format(found))
         answer = str(raw_input("[hackrf_ma_twarz] Type [Y] to do a new scan:"))
         do_scan = answer.lower() in "y"
 
@@ -431,7 +431,7 @@ if do_scan:
         print("[hackrf_ma_twarz] No transmitters found, sorry")
         exit(1)
 
-print("[hackrf_ma_twarz] Following transmitters were found:")
+print("[hackrf_ma_twarz] Following frequencies were found:")
 frequency_choice = {}
 
 for i in range(0, len(found)):
