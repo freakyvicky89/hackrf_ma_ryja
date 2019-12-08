@@ -407,6 +407,9 @@ if os.path.exists(CACHE_FILE):
     with open(CACHE_FILE, "r") as cache_file:
         found = cache_file.readlines()
 
+    for freq_name in found:
+        freq_name = freq_name.strip()
+
     if len(found) < 1:
         do_scan=True
 
