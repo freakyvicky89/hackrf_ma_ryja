@@ -18,7 +18,8 @@ Supports only Polish FM radio frequencies (for now)
 -     chmod +x install_deps_ubuntu.sh
 -     ./install_deps_ubuntu.sh
 * you will be prompted for your password
-# how to run:
+# how to run *(assuming you followed installation instructions to the letter)*:
 * open terminal and type:
+-     cd hackrf_ma_twarz
 -     python hackrf_ma_twarz.py [what]
 * where [what] = filename of wave file (without .wav extension) OR youtube video id (open a youtube video and look at the address bar: https://www.youtube.com/watch?v= *this part* )
