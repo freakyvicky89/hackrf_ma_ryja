@@ -23,5 +23,7 @@ Supports only Polish FM radio frequencies (for now)
 -     cd hackrf_ma_twarz
 -     python hackrf_ma_twarz.py [what]
 * where [what] = youtube video id (open a youtube video and look at the address bar: https://www.youtube.com/watch?v= *this part* ) OR filename of wave file in the hackrf_ma_twarz directory (without .wav extension)
+* example:
+-     python hackrf_ma_twarz.py xC10076Ix1k
 * follow the instructions on the screen when they appear
 * the first scan takes about 18 minutes, but the script will store the results for you: if you run it in the same place again it will start transmission in no time at all
