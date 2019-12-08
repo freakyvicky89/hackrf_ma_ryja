@@ -405,10 +405,10 @@ found = []
 if os.path.exists(CACHE_FILE):
 
     with open(CACHE_FILE, "r") as cache_file:
-        found = cache_file.readlines()
+        from_cache = cache_file.readlines()
 
-    for freq_name in found:
-        freq_name = freq_name.strip()
+    for raw_name in from_cache:
+        found.append(raw_name.strip())
 
     if len(found) < 1:
         do_scan=True
