@@ -22,4 +22,4 @@ Supports only Polish FM radio frequencies (for now)
 * open terminal and type:
 -     cd hackrf_ma_twarz
 -     python hackrf_ma_twarz.py [what]
-* where [what] = filename of wave file (without .wav extension) OR youtube video id (open a youtube video and look at the address bar: https://www.youtube.com/watch?v= *this part* )
+* where [what] = youtube video id (open a youtube video and look at the address bar: https://www.youtube.com/watch?v= *this part* ) OR filename of wave file in the hackrf_ma_twarz directory (without .wav extension)
