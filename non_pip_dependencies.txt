@@ -6,3 +6,4 @@ gr-rds - https://github.com/bastibl/gr-rds
 hackrf firmware - as above, package should be called just hackrf
 an actual hackrf - unfortunately, you can't download physical electronics yet, you need to buy it or something
 ffmpeg
+sox

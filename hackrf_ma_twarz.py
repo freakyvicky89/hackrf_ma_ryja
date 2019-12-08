@@ -1,4 +1,4 @@
-import sys, os, youtube_dl, osmosdr, rds, time, threading, pmt
+import sys, os, youtube_dl, osmosdr, rds, time, threading, pmt, sox
 from gnuradio import analog
 from gnuradio import blocks
 from gnuradio import digital
@@ -17,7 +17,6 @@ HACKRF_RELEASE_TIME = 2
 
 RDS_TEXT_FRAGMENT = 'radiomaryja'
 
-SAMPLE_RATE = 48000
 RF_GAIN = 30
 
 FREQS = {
@@ -255,7 +254,7 @@ class rds_rx(gr.top_block):
 
 class fm_tx(gr.top_block):
 
-    def __init__(self, frequency, file):
+    def __init__(self, frequency, file, sample_rate):
         gr.top_block.__init__(self, "FM Transmitter")
 
         ##################################################
@@ -263,7 +262,7 @@ class fm_tx(gr.top_block):
         ##################################################
         self.tune_freq = tune_freq = frequency
         self.file_name = file_name = file
-        self.samp_rate = samp_rate = 48000
+        self.samp_rate = samp_rate = sample_rate
 
         ##################################################
         # Blocks
@@ -367,9 +366,9 @@ def check_frequency(name):
     return ret
 
 
-def transmit(tx_frequency, source_file):
+def transmit(tx_frequency, source_file, sample_rate):
     print("[hackrf_ma_twarz] Transmitting {} on {} MHz".format(source_file, tx_frequency))
-    transmitter = fm_tx(tx_frequency*1e6, source_file)
+    transmitter = fm_tx(tx_frequency*1e6, source_file, sample_rate)
     transmitter.start()
     transmitter.wait()
     print("[hackrf_ma_twarz] +Stopping transmitter")
@@ -380,6 +379,10 @@ def transmit(tx_frequency, source_file):
     time.sleep(HACKRF_RELEASE_TIME)
     del transmitter
     print("[hackrf_ma_twarz] +Transmitter object destroyed")
+
+
+def check_sample_rate(path):
+    return int(sox.file_info.sample_rate(path))
 
 
 ##################################################################
@@ -416,7 +419,6 @@ else:
     do_scan=True
 
 if do_scan:
-    #print(check_frequency(DEBUG_TRANSMITTER)) # for debugging
     for frequency_name in FREQS:
         if check_frequency(frequency_name):
             print("[hackrf_ma_twarz] Found \"{}\" on {} : {}".format(RDS_TEXT_FRAGMENT, frequency_name, FREQS[frequency_name]))
@@ -442,4 +444,6 @@ chosen = -1
 while not chosen in range(0, len(found)):
     chosen = int(raw_input("[hackrf_ma_twarz] Please choose one:"))
 
-transmit(FREQS[found[chosen]], path)
+sample_rate = check_sample_rate(path)
+
+transmit(FREQS[found[chosen]], path, sample_rate)
