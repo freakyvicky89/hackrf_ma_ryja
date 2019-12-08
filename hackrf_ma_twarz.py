@@ -367,7 +367,7 @@ def check_frequency(name):
 
 
 def transmit(tx_frequency, source_file, sample_rate):
-    print("[hackrf_ma_twarz] Transmitting {} on {} MHz".format(source_file, tx_frequency))
+    print("[hackrf_ma_twarz] Transmitting {} on {} MHz, Ctrl+C to stop".format(source_file, tx_frequency))
     transmitter = fm_tx(tx_frequency*1e6, source_file, sample_rate)
     transmitter.start()
     transmitter.wait()
