@@ -451,7 +451,7 @@ for i in range(0, len(found)):
 
 chosen = -1
 while not chosen in range(0, len(found)):
-    chosen = int(raw_input("[hackrf_ma_twarz] Please choose one:"))
+    chosen = int(raw_input("[hackrf_ma_twarz] Please choose one by typing in the number in brackets:"))
 
 sample_rate = check_sample_rate(path)
 
