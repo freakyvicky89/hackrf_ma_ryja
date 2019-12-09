@@ -431,6 +431,8 @@ if do_scan:
             found.append(frequency_name)
 
     if len(found) > 0:
+        if os.path.exists(CACHE_FILE):
+            os.remove(CACHE_FILE)
         with open(CACHE_FILE, "w") as cache_file:
             for freq_nm in found:
                 cache_file.write(freq_nm + "\n")
