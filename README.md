@@ -26,4 +26,5 @@ Supports only Polish FM radio frequencies (for now)
 * example:
 -     python hackrf_ma_twarz.py xC10076Ix1k
 * follow the instructions on the screen when they appear
+* you can choose from the provided cache of all the possible frequencies, or to let the script scan them checking which ones actually contain radio maryja in your area
 * the first scan takes about 18 minutes, but the script will store the results for you: if you run it in the same place again it will start transmission in no time at all

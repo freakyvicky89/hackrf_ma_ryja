@@ -414,7 +414,9 @@ if os.path.exists(CACHE_FILE):
         do_scan=True
 
     else:
-        print("[hackrf_ma_twarz] Found cache containg frequencies: {}".format(found))
+        print("[hackrf_ma_twarz] Found cache containg frequencies:")
+        for freq_nm in found:
+            print("[hackrf_ma_twarz]   [{}] : {} MHz".format(freq_nm, FREQS[freq_nm]))
         answer = str(raw_input("[hackrf_ma_twarz] Type [Y] to do a new scan:"))
         do_scan = answer.lower() in "y"
 
@@ -422,6 +424,7 @@ else:
     do_scan=True
 
 if do_scan:
+    found = []
     for frequency_name in FREQS:
         if check_frequency(frequency_name):
             print("[hackrf_ma_twarz] Found \"{}\" on {} : {}".format(RDS_TEXT_FRAGMENT, frequency_name, FREQS[frequency_name]))
@@ -429,7 +432,8 @@ if do_scan:
 
     if len(found) > 0:
         with open(CACHE_FILE, "w") as cache_file:
-            cache_file.writelines(found)
+            for freq_nm in found:
+                cache_file.write(freq_nm + "\n")
             print("[hackrf_ma_twarz] Stored {} in cache.".format(found))
 
     else:
